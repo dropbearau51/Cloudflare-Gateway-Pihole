@@ -1,6 +1,8 @@
 name: Add Rules to Cloudflare Gateway
 on:
   push:
+  schedule:
+    - cron: "0 * * * *"
   workflow_dispatch:
 jobs:
   run:
@@ -9,10 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       CF_IDENTIFIER: ${{ secrets.CF_IDENTIFIER }}
       ADLIST_URLS: ${{ vars.ADLIST_URLS }}
       WHITELIST_URLS: ${{ vars.WHITELIST_URLS }}
+      DYNAMIC_BLACKLIST: ${{ vars.DYNAMIC_BLACKLIST }}
+      DYNAMIC_WHITELIST: ${{ vars.DYNAMIC_WHITELIST }}
 
     steps:
       - name: Checkout Repository
@@ -24,17 +29,15 @@ jobs:
         uses: actions/setup-python@main
         with:
           python-version: 3.11
-
-      - name: Install Dependencies
-        run: pip install -r requirements.txt
-          
-      - name: Cloudflare Gateway Zero Trust 
-        run: python -m src
-          
-      - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@main
+        
+      - name: Cache Data
+        id: cache-cloudflare
+        uses: actions/cache@main
         with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 0
-          keep_minimum_runs: 1
+          path: cloudflare_cache.json
+          key: ${{ runner.os }}-cloudflare-cache-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-cloudflare-cache-
+      
+      - name: Cloudflare Gateway Zero Trust 
+        run: python -m src run
